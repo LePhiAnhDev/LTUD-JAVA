@@ -1,88 +1,78 @@
-# Lab 3 — Cấu hình Spring Boot Cơ bản
+# Lab 3 — Spring MVC: Ứng dụng quản lý sản phẩm
 
-Dự án Spring Boot minh họa `@SpringBootApplication`, ngoại hóa cấu hình bằng
-`application.properties`, tiêm cấu hình với `@Value`, chạy code khởi động bằng
-`CommandLineRunner`, và chuyển môi trường bằng **Spring Profiles**.
+Ứng dụng web quản lý sản phẩm đơn giản xây dựng bằng **Spring Boot + Spring MVC + Thymeleaf**,
+theo đề bài `Ch3_BT_Spring_MVC_in_class.pdf`.
+
+Công nghệ: JDK 21 · Maven · Spring Boot 3.2.3 · Spring MVC · Thymeleaf · Bean Validation · DevTools.
+
+## Chức năng
+
+**Cơ bản (mục 1–9 của đề):**
+1. Xem danh sách sản phẩm — `GET /products`
+2. Thêm sản phẩm mới (có kiểm tra dữ liệu) — `GET /products/add`, `POST /products/add`
+3. Xem chi tiết sản phẩm theo ID — `GET /products/{id}`
+
+**Bài tập mở rộng (mục 11 của đề):**
+1. **Xóa sản phẩm** — `POST /products/delete/{id}` (nút "Xóa" ở mỗi dòng)
+2. **Tìm kiếm theo tên** — `GET /products?keyword=...` (không phân biệt hoa/thường)
+3. **Format giá tiền theo VNĐ** — hiển thị `15.000.000 ₫` (dùng `#numbers` của Thymeleaf trong view,
+   và phương thức `ProductService.formatPrice(...)` phía Java)
+4. **Tách xử lý dữ liệu sang `ProductService`** — Controller không còn giữ danh sách, chỉ gọi Service
 
 ## Cấu trúc
 
 ```
 lab-3/
-├── pom.xml                       # spring-boot-starter-parent 3.2.3 + spring-boot-starter
-└── src/main/
-    ├── java/com/lab/boot/
-    │   ├── Lab3Application.java             # @SpringBootApplication + main()
-    │   ├── services/NotificationService.java # @Service — inject config bằng @Value
-    │   └── runner/AppRunner.java            # @Component implements CommandLineRunner
-    └── resources/
-        ├── application.properties           # cấu hình cơ sở + spring.profiles.active=dev
-        ├── application-dev.properties        # override cho profile 'dev'
-        └── application-prod.properties        # override cho profile 'prod'
+├── pom.xml                                  # web + thymeleaf + validation + devtools, Java 21
+└── src/
+    ├── main/
+    │   ├── java/com/example/productapp/
+    │   │   ├── ProductAppApplication.java       # @SpringBootApplication + main()
+    │   │   ├── controller/
+    │   │   │   ├── ProductController.java        # list / add / detail / search / delete
+    │   │   │   └── HomeController.java            # "/" -> redirect "/products"
+    │   │   ├── service/ProductService.java       # lưu trữ in-memory + nghiệp vụ
+    │   │   └── model/Product.java                # @NotBlank, @Min validation
+    │   └── resources/
+    │       ├── application.properties
+    │       ├── static/css/style.css
+    │       └── templates/
+    │           ├── products.html                 # danh sách + tìm kiếm + xóa
+    │           ├── add-product.html              # form thêm + báo lỗi validation
+    │           └── product-detail.html
+    └── test/java/com/example/productapp/
+        ├── service/ProductServiceTest.java       # unit test nghiệp vụ
+        └── controller/ProductControllerTest.java # MockMvc test tầng web
 ```
 
 ## Cách chạy
 
-- **IntelliJ IDEA:** mở thư mục `lab-3`, đợi Maven import, chạy `Lab3Application.java`.
-- **Dòng lệnh (profile mặc định = `dev`, đã đặt trong `application.properties`):**
-  ```
-  mvn spring-boot:run
-  ```
-- **Chạy với profile `prod`:**
-  ```
-  mvn spring-boot:run -Dspring-boot.run.profiles=prod
-  ```
-- **Hoặc đóng gói rồi chạy jar:**
-  ```
-  mvn package
-  java -jar target/lab3-spring-boot-1.0.jar                          # dev
-  java -jar target/lab3-spring-boot-1.0.jar --spring.profiles.active=prod
-  ```
+**IntelliJ IDEA:** mở thư mục `lab-3`, đợi Maven import xong, chạy `ProductAppApplication.java`.
 
-Kết quả quan sát được:
+**Dòng lệnh:**
+```bash
+mvn spring-boot:run
+```
+Hoặc đóng gói rồi chạy jar:
+```bash
+mvn clean package
+java -jar target/productapp-0.0.1-SNAPSHOT.jar
+```
 
-| Profile | channel | from | max-retries | Output dòng gửi |
-|--------|---------|------|-------------|-----------------|
-| `dev`  | console (override) | dev@localhost (override) | 3 (từ file cơ sở) | `[CONSOLE] From: dev@localhost | ... (retry=3)` |
-| `prod` | email  | system@company.com | 5 (override) | `[EMAIL] From: system@company.com | ... (retry=5)` |
+Sau đó truy cập: **http://localhost:8080/products** (hoặc http://localhost:8080/ sẽ tự chuyển hướng).
 
----
+## Chạy test
 
-## Câu hỏi ôn tập
+```bash
+mvn test
+```
 
-### 1. `@SpringBootApplication` gồm những annotation nào? Mỗi cái làm gì?
+## Ghi chú kỹ thuật
 
-Là một **meta-annotation** gộp 3 annotation chính:
-
-- **`@SpringBootConfiguration`** (một biến thể của `@Configuration`): đánh dấu class là
-  nguồn định nghĩa bean / cấu hình của ứng dụng.
-- **`@ComponentScan`**: tự động quét và đăng ký mọi `@Component`, `@Service`,
-  `@Repository`, `@Controller`... trong package hiện tại **và các package con** (ở đây là
-  `com.lab.boot.*`).
-- **`@EnableAutoConfiguration`**: Spring Boot **tự động cấu hình** dựa trên các thư viện
-  có sẵn trên classpath (auto-configuration).
-
-### 2. Khác biệt giữa `@Value("${key}")` và `@Value("${key:default}")`?
-
-- **`@Value("${key}")`**: **bắt buộc** key phải tồn tại. Nếu không tìm thấy trong cấu hình,
-  ứng dụng **khởi động lỗi** (`IllegalArgumentException: Could not resolve placeholder 'key'`).
-- **`@Value("${key:default}")`**: có **giá trị mặc định** sau dấu `:`. Có key → dùng giá trị
-  cấu hình; không có key → dùng `default` và ứng dụng vẫn chạy bình thường.
-  Ví dụ trong lab: `@Value("${app.notification.max-retries:3}")` → mặc định `3` nếu thiếu key.
-
-### 3. `CommandLineRunner.run()` được gọi khi nào trong vòng đời ứng dụng?
-
-Được gọi **một lần**, **ngay sau khi Spring Context đã khởi tạo xong và ứng dụng sẵn sàng**,
-nhưng **trước khi** `SpringApplication.run(...)` trả về. Trình tự: context refresh xong →
-tất cả bean sẵn sàng → chạy các `CommandLineRunner` (và `ApplicationRunner`) → sau đó
-`main()` tiếp tục. Dùng cho tác vụ khởi động: seed dữ liệu, kiểm tra hệ thống, in thông
-tin... Nó nhận `String... args` chính là tham số dòng lệnh.
-
-### 4. Khi đặt `spring.profiles.active=prod`, `application.properties` có còn được đọc không?
-
-**Có.** Spring Boot **luôn load `application.properties` (file cơ sở) trước**, sau đó load
-`application-prod.properties` và **ghi đè các key trùng nhau**. Những key chỉ có trong file
-cơ sở (không bị profile ghi đè) vẫn giữ nguyên giá trị.
-
-> **Bằng chứng từ lab:** khi chạy profile `dev`, file `application-dev.properties` chỉ override
-> `channel` và `from`, nên `max-retries` vẫn = `3` lấy từ `application.properties`. Cơ chế
-> "base trước, profile ghi đè sau" là lý do cho điều này.
+- **`@SpringBootApplication`** = `@Configuration` + `@ComponentScan` + `@EnableAutoConfiguration`.
+- **Validation:** `@Valid @ModelAttribute Product` + `BindingResult`. Nếu `bindingResult.hasErrors()`
+  thì trả lại form `add-product` và hiển thị lỗi qua `th:errors`; nếu hợp lệ thì lưu và `redirect:/products`.
+- **Sinh ID:** dùng bộ đếm tăng dần (`AtomicInteger`) nên ID không trùng kể cả sau khi xóa
+  (không dùng `size()+1` vì sẽ trùng sau khi xóa).
+- **Định tuyến:** `GET /products/add` (đường dẫn tường minh) được ưu tiên hơn mẫu `GET /products/{id}`,
+  nên hai route không xung đột.

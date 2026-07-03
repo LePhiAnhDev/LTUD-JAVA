@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Danh sách sản phẩm</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+</head>
+<body>
+<div class="container">
+    <h1>Danh sách sản phẩm</h1>
+
+    <div class="toolbar">
+        <a class="btn" th:href="@{/products/add}">+ Thêm sản phẩm</a>
+
+        <!-- Bài tập mở rộng (2): tìm kiếm theo tên -->
+        <form th:action="@{/products}" method="get">
+            <input type="text" name="keyword" th:value="${keyword}"
+                   placeholder="Tìm sản phẩm theo tên...">
+            <button class="btn btn-secondary" type="submit">Tìm kiếm</button>
+            <a class="btn btn-secondary" th:href="@{/products}"
+               th:if="${keyword != null and !keyword.isBlank()}">Xóa lọc</a>
+        </form>
+    </div>
+
+    <table>
+        <thead>
+        <tr>
+            <th>ID</th>
+            <th>Tên</th>
+            <th>Giá</th>
+            <th>Chi tiết</th>
+            <th>Thao tác</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr th:each="product : ${products}">
+            <td th:text="${product.id}">1</td>
+            <td th:text="${product.name}">Tên</td>
+            <!-- Bài tập mở rộng (3): format giá tiền theo VNĐ (nhóm hàng nghìn bằng dấu chấm) -->
+            <td class="price"
+                th:text="|${#numbers.formatInteger(product.price, 1, 'POINT')} ₫|">0 ₫</td>
+            <td><a th:href="@{/products/{id}(id=${product.id})}">Xem</a></td>
+            <td class="actions">
+                <!-- Bài tập mở rộng (1): xóa sản phẩm (dùng POST) -->
+                <form th:action="@{/products/delete/{id}(id=${product.id})}" method="post"
+                      onsubmit="return confirm('Xóa sản phẩm này?');">
+                    <button class="btn btn-danger" type="submit">Xóa</button>
+                </form>
+            </td>
+        </tr>
+        <tr th:if="${#lists.isEmpty(products)}">
+            <td colspan="5" class="muted">Không có sản phẩm nào.</td>
+        </tr>
+        </tbody>
+    </table>
+</div>
+</body>
+</html>
